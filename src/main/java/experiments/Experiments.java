@@ -804,6 +804,10 @@ public class Experiments  {
             case 2: //COMPACT
                 results.writeCompactResultsToFile(fullTestWritingPath);
                 break;
+            case 3: //PREDICTIONS + METRICS
+                results.writeFullResultsToFile(fullTestWritingPath);
+                results.writeSummaryResultsToFile(fullTestWritingPath.replace(".csv", "_metrics.csv"));
+                break;
             default: {
                 System.err.println("Classifier Results file writing format not recognised, "+exp.classifierResultsFileFormat+", just writing the full predictions.");
                 results.writeFullResultsToFile(fullTestWritingPath);
