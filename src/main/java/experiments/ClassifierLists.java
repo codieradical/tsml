@@ -328,7 +328,7 @@ public class ClassifierLists {
     /**
      * MULTIVARIATE time series classifiers, all in one list for now
      */
-    public static String[] allMultivariate={"Shapelet_I","Shapelet_D","Shapelet_Indep","ED_I","DTW_I","DTW_D","DTW_A","HIVE-COTE_I", "HC_I", "CBOSS_I", "RISE_I", "STC_I", "TSF_I","PF_I","TS-CHIEF_I","HC-PF_I","HIVE-COTEn_I"};//Not enough to classify yet
+    public static String[] allMultivariate={"Shapelet_I","Shapelet_D","Shapelet_Indep","ED_I","ED_D","DTW_I","DTW_D","DTW_A","HIVE-COTE_I", "HC_I", "CBOSS_I", "RISE_I", "STC_I", "TSF_I","PF_I","TS-CHIEF_I","HC-PF_I","HIVE-COTEn_I"};//Not enough to classify yet
     public static HashSet<String> multivariateBased=new HashSet<String>( Arrays.asList(allMultivariate));
     private static Classifier setMultivariate(Experiments.ExperimentalArguments exp){
         String classifier=exp.classifierName,resultsPath="",dataset="";
@@ -369,23 +369,29 @@ public class ClassifierLists {
                 break;
             case "CBOSS_I":
                 c=new MultivariateSingleEnsemble("cBOSS", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
+                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
                 break;
             case "RISE_I":
                 c=new MultivariateSingleEnsemble("RISE", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
+                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
                 break;
             case "STC_I":
                 c=new MultivariateSingleEnsemble("STC", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
+                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
                 ((EnhancedAbstractClassifier)c).setDebug(true);
 
                 break;
             case "TSF_I":
                 c=new MultivariateSingleEnsemble("TSF", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
+                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
                 break;
             case "PF_I":
                 c=new MultivariateSingleEnsemble("ProximityForest", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
+                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
                 break;
             case "TS-CHIEF_I":
                 c=new MultivariateSingleEnsemble("TSCHIEF", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
+                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
                 break;
             case "HIVE-COTE_I":
                 if(canLoadFromFile){

@@ -1009,8 +1009,8 @@ public class Experiments  {
 
             ArrayList<ExperimentalArguments> exps = new ArrayList<>(classifierNames.length * datasetNames.length * (maxFold - minFold));
 
-            for (String classifier : classifierNames) {
-                for (String dataset : datasetNames) {
+            for (String dataset : datasetNames) {
+                for (String classifier : classifierNames) {
                     for (int fold = minFold; fold < maxFold; fold++) {
                         ExperimentalArguments exp = new ExperimentalArguments();
                         exp.classifierName = classifier;
