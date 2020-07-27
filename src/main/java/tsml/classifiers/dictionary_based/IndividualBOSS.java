@@ -251,6 +251,8 @@ public class IndividualBOSS extends AbstractClassifier implements Serializable, 
 
         // means and stddev for each sliding window
         int end = Math.max(1, series.length - windowSize + 1);
+        // ALEX DEBUG
+        //System.out.println("series length: " + series.length + " window size: " + windowSize);
         double[] means = new double[end];
         double[] stds = new double[end];
         calcIncrementalMeanStddev(windowSize, series, means, stds);
@@ -416,6 +418,8 @@ public class IndividualBOSS extends AbstractClassifier implements Serializable, 
      * @return data of passed instance in a double array with the class value removed if present
      */
     protected static double[] toArrayNoClass(Instance inst) {
+        // ALEX DEBUG
+        //System.out.println("instance: " + inst.toString());
         int length = inst.numAttributes();
         if (inst.classIndex() >= 0)
             --length;

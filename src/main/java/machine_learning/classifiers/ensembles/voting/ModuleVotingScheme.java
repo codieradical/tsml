@@ -117,6 +117,8 @@ public abstract class ModuleVotingScheme implements DebugPrinting {
         if (module.testResults == null) {
             module.testResults = new ClassifierResults();   
             module.testResults.setTimeUnit(TimeUnit.NANOSECONDS);
+            // ALEX DEBUG
+            //System.out.println("train results: " + module.trainResults);
             module.testResults.setBuildTime(module.trainResults.getBuildTime());
         }
         

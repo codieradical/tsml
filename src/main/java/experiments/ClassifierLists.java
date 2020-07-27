@@ -399,6 +399,7 @@ public class ClassifierLists {
                 c=new MultivariateHiveCote(exp.resultsWriteLocation, exp.datasetName, exp.foldId);
                 break;
             case "CBOSS_I":
+                //c=new DimensionIndependentEnsemble(new cBOSS());
                 c=new MultivariateSingleEnsemble("cBOSS", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
                 ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
                 break;
@@ -413,16 +414,27 @@ public class ClassifierLists {
 
                 break;
             case "TSF_I":
-                c=new MultivariateSingleEnsemble("TSF", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
-                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
+//                c=new MultivariateSingleEnsemble("TSF", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
+//                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
+                TSF tsf = new TSF();
+
+                try {
+                    tsf.setOptions(new String[]{"-I sqrt"});
+                } catch (Exception ex) {
+                    ex.printStackTrace();
+                }
+
+                c=new DimensionIndependentEnsemble(tsf);
                 break;
             case "PF_I":
-                c=new MultivariateSingleEnsemble("ProximityForest", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
-                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
+//                c=new MultivariateSingleEnsemble("ProximityForest", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
+//                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
+                c=new DimensionIndependentEnsemble(new ProximityForestWrapper());
                 break;
             case "TS-CHIEF_I":
-                c=new MultivariateSingleEnsemble("TSCHIEF", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
-                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
+//                c=new MultivariateSingleEnsemble("TSCHIEF", exp.resultsWriteLocation, exp.datasetName, exp.foldId);
+//                ((MultivariateSingleEnsemble)c).setWriteIndividualsTrainResultsFiles(true);
+                c=new DimensionIndependentEnsemble(new TSCHIEFWrapper());
                 break;
             case "HIVE-COTE_I":
                 if(canLoadFromFile){

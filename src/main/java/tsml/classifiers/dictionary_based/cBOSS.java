@@ -1315,15 +1315,25 @@ public class cBOSS extends EnhancedAbstractClassifier implements TrainTimeContra
 
         Instance[] series;
 
+        // ALEX DEBUG
+        // For some reason this isn't being set as expected.
+        // This is obviously a hacky fix. I'll chase this on the main repo later.
+        isMultivariate = true;
+
+        //System.out.println("is multivariate: " + isMultivariate);
+
         //Multivariate
         if (isMultivariate) {
+            //System.out.println(Arrays.toString("series:" + instance));
             series = splitMultivariateInstanceWithClassVal(instance);
+            //System.out.println(Arrays.toString(series));
         }
         //Univariate
         else {
             series = new Instance[1];
             series[0] = instance;
         }
+        //System.out.println("is multivariate: " + isMultivariate);
 
         if (multiThread){
             ArrayList<Future<Double>>[] futures = new ArrayList[numSeries];

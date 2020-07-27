@@ -16,6 +16,8 @@ package tsml.classifiers.multivariate;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+
+import evaluation.storage.ClassifierResults;
 import machine_learning.classifiers.ensembles.AbstractEnsemble.EnsembleModule;
 import machine_learning.classifiers.ensembles.voting.MajorityVote;
 import machine_learning.classifiers.ensembles.voting.ModuleVotingScheme;
@@ -24,6 +26,8 @@ import machine_learning.classifiers.ensembles.weightings.ModuleWeightingScheme;
 import static utilities.GenericTools.indexOfMax;
 import static utilities.multivariate_tools.MultivariateInstanceTools.splitMultivariateInstanceWithClassVal;
 import static utilities.multivariate_tools.MultivariateInstanceTools.splitMultivariateInstances;
+
+import org.apache.commons.lang3.time.StopWatch;
 import weka.classifiers.AbstractClassifier;
 import weka.classifiers.Classifier;
 import weka.classifiers.RandomizableIteratedSingleClassifierEnhancer;
@@ -120,7 +124,18 @@ public class DimensionIndependentEnsemble extends AbstractClassifier{
         //build the classifier.
         for(int i=0; i<numChannels; i++){
             Instances channel = channels[i];
+            // ALEX DEBUG
+            // classifiers aren't always evaluated on build time.
+            // I think this has something to do with contract implementations.
+            // Here the build time is recorded and set.
+            StopWatch trainTime = new StopWatch();
+            trainTime.start();
             modules[i].getClassifier().buildClassifier(channel);
+            trainTime.stop();
+            if(modules[i].trainResults == null) {
+                modules[i].trainResults = new ClassifierResults();
+                modules[i].trainResults.setBuildTime(trainTime.getNanoTime());
+            }
         }
     }
     

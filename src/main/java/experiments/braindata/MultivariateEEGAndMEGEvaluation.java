@@ -91,10 +91,21 @@ import java.io.File;
                 expThreaded.generateErrorEstimateOnTrainSet = true;
                 expThreaded.foldId = 0;
                 expThreaded.classifierResultsFileFormat = 3;
+                expThreaded.debug = true;
 
-                //Experiments.setupAndRunMultipleExperimentsThreaded(expThreaded, classifiers, new String[] {Datasets.SMALL_DATASETS[0]}, 0, 1);
-                Experiments.setupAndRunMultipleExperimentsThreaded(expThreaded, classifiers, Datasets.SMALL_DATASETS, 0, 1);
+                //Experiments.setupAndRunMultipleExperimentsThreaded(expThreaded, classifiers, new String[] {Datasets.SMALL_DATASETS[0]}, 1, 1);
 
+//                expThreaded.classifierName = classifier;
+//                //expThreaded.datasetName = Datasets.SMALL_DATASETS[0];
+//                expThreaded.datasetName = "TINY_TEST";
+//                Experiments.setupAndRunExperiment(expThreaded);
+
+                if(classifier != null)
+                    Experiments.setupAndRunMultipleExperimentsThreaded(expThreaded, classifiers, Datasets.ALL_DATASETS, 0, 1);
+                else
+                    Experiments.setupAndRunMultipleExperimentsThreaded(expThreaded, classifiers, Datasets.SMALL_DATASETS, 0, 1);
+
+                //Experiments.setupAndRunMultipleExperimentsThreaded(expThreaded, classifiers, Datasets.SMALL_DATASETS, 0, 1);
                 //Experiments.setupAndRunMultipleExperimentsThreaded(expThreaded, classifiers, Datasets.BIG_DATASETS, 0, 1);
 
             } catch (Exception ex) {

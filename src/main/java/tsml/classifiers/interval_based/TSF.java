@@ -365,6 +365,12 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
         }
         else {//else initialise variables
             seriesLength = data.numAttributes() - 1;
+            // ALEX DEBUG
+            // For some reason this is null. It shouldn't be.
+            // This will be problematic for tuning but I'll cross that bridge when i get to it.
+            numIntervalsFinder = (numAtts) -> (int)(Math.sqrt(numAtts));
+
+            //System.out.println("numIntervalsFinder: " + numIntervalsFinder);
             numIntervals = numIntervalsFinder.apply(data.numAttributes() - 1);
             printDebug("Building TSF: number of intervals = " + numIntervals+" number of trees ="+numClassifiers+"\n");
             trees = new ArrayList(numClassifiers);
