@@ -27,6 +27,7 @@ import tsml.classifiers.*;
 import utilities.ClassifierTools;
 import evaluation.evaluators.CrossValidationEvaluator;
 import weka.classifiers.AbstractClassifier;
+import weka.classifiers.trees.RandomTree;
 import weka.core.Attribute;
 import weka.core.DenseInstance;
 import weka.core.Instance;
@@ -94,32 +95,29 @@ import weka.core.Utils;
  *  set number of intervals to calculate.</pre>
  <!-- options-end -->
  
-* author ajb
+* @version1.0 author Tony Bagnall
 * date 7/10/15  Tony Bagnall
-* update1 14/2/19 Tony Bagnall
- * * A few changes made to enable testing refinements.
- *1. general baseClassifier rather than a hard coded RandomTree. We tested a few
+* update 14/2/19 Tony Bagnall
+ * A few changes made to enable testing refinements.
+ * 1. general baseClassifier rather than a hard coded RandomTree. We tested a few
  *  alternatives, they did not improve things
  * 2. Added setOptions to allow parameter tuning. Tuning on parameters
  *       #trees, #features
  * update2 13/9/19: Adjust to allow three methods for estimating test accuracy Tony Bagnall
-* @version2.0 13/03/20 contracting, checkpointing and tuneable, Matthew Middlehurst
+*  @version2.0 13/03/20 Matthew Middlehurst. contractable, checkpointable and tuneable,
  * This classifier is tested and deemed stable on 10/3/2020. It is unlikely to change again
  *  results for this classifier on 112 UCR data sets can be found at
  *  www.timeseriesclassification.com/results/ResultsByClassifier/TSF.csv. The first column of results  are on the default
- *  train/terst split. The others are found through stratified resampling of the combined train/test
+ *  train/test split. The others are found through stratified resampling of the combined train/test
  *  individual results on each fold are
  *  timeseriesclassification.com/results/ResultsByClassifier/TSF/Predictions
- *
- *
- *  A note on timings. buildTime does not include time taken to estimate error from the train data, unless bagging is
- *  true, in which case it does. This is a minor bug.
-**/
+ * update 1/7/2020: Tony Bagnall. Sort out correct recording of timing, and tidy up comments. The storage option for
+ * either CV or OOB
+*/
  
 public class TSF extends EnhancedAbstractClassifier implements TechnicalInformationHandler,
         TrainTimeContractable, Checkpointable, Tuneable , Visualisable{
 //Static defaults
-     
     private final static int DEFAULT_NUM_CLASSIFIERS=500;
  
     /** Primary parameters potentially tunable*/   
@@ -154,24 +152,6 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
     private int[] oobCounts;
     private double[][] trainDistributions;
 
-   /** If trainAccuracy is required, there are three mechanisms to obtain it:
-    * 1. bagging == true: use the OOB accuracy from the final model
-    * 2. bagging == false,estimator=CV: do a 10x CV on the train set with a clone
-    * of this classifier
-    * 3. bagging == false,estimator=OOB: build an OOB model just to get the OOB
-    * accuracy estimate
-    */
-    enum EstimatorMethod{CV,OOB}
-    private EstimatorMethod estimator=EstimatorMethod.CV;
-    public void setEstimatorMethod(String str){
-        String s=str.toUpperCase();
-        if(s.equals("CV"))
-            estimator=EstimatorMethod.CV;
-        else if(s.equals("OOB"))
-            estimator=EstimatorMethod.OOB;
-        else
-            throw new UnsupportedOperationException("Unknown estimator method in TSF = "+str);
-    }
 
 
     /**** Checkpointing variables *****/
@@ -182,9 +162,9 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
 
 
     private long checkpointTimeElapsed= 0;
-
     private boolean trainTimeContract = false;
     transient private long trainContractTimeNanos = 0;
+    transient private long finalBuildtrainContractTimeNanos = 0;
 
     protected static final long serialVersionUID = 32554L;
 
@@ -247,7 +227,7 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
     }
      
      
-//<editor-fold defaultstate="collapsed" desc="results reported in Info Sciences paper">        
+//<editor-fold defaultstate="collapsed" desc="results reported in Info Sciences paper (errors)">
     static double[] reportedErrorResults ={
         0.2659,
         0.2302,
@@ -373,30 +353,40 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
  */     
     @Override
     public void buildClassifier(Instances data) throws Exception {
-    // can classifier handle the data?
+        // can classifier handle the data?
         getCapabilities().testWithFail(data);
         long startTime=System.nanoTime();
         File file = new File(checkpointPath + "TSF" + seed + ".ser");
-        //if checkpointing and serialised files exist load said files
+        //Set up Checkpointing (saving to file)/ if checkpointing and serialised files exist load said file
         if (checkpoint && file.exists()){
             //path checkpoint files will be saved to
             printLineDebug("Loading from checkpoint file");
             loadFromFile(checkpointPath + "TSF" + seed + ".ser");
         }
-        //else initialise variables
-        else {
+        else {//else initialise variables
             seriesLength = data.numAttributes() - 1;
             numIntervals = numIntervalsFinder.apply(data.numAttributes() - 1);
             printDebug("Building TSF: number of intervals = " + numIntervals+" number of trees ="+numClassifiers+"\n");
             trees = new ArrayList(numClassifiers);
+            // Set up for train estimates
+            if(getEstimateOwnPerformance()) {
+                trainDistributions= new double[data.numInstances()][data.numClasses()];
+            }
+            //Set up for bagging
             if(bagging){
                 inBag=new ArrayList();
+                oobCounts=new int[data.numInstances()];
                 printLineDebug("TSF is using Bagging");
             }
             intervals = new ArrayList();
             lastCheckpointTime=startTime;
         }
-
+        finalBuildtrainContractTimeNanos=trainContractTimeNanos;
+        //If contracted and estimating own performance, distribute the contract evenly between estimation and the final build
+        if(trainTimeContract &&  !bagging && getEstimateOwnPerformance()){
+            finalBuildtrainContractTimeNanos/=2;
+            printLineDebug(" Setting final contract time to "+finalBuildtrainContractTimeNanos+" nanos");
+        }
 
         ArrayList<Attribute> atts=new ArrayList<>();
         String name;
@@ -411,27 +401,30 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
             vals.add(target.value(j));
         atts.add(new Attribute(data.attribute(data.classIndex()).name(),vals));
         //create blank instances with the correct class value                
-        Instances result = new Instances("Tree",atts,data.numInstances());
-        result.setClassIndex(result.numAttributes()-1);
+        Instances transformedData = new Instances("Tree",atts,data.numInstances());
+        transformedData.setClassIndex(transformedData.numAttributes()-1);
         for(int i=0;i<data.numInstances();i++){
-            DenseInstance in=new DenseInstance(result.numAttributes());
-            in.setValue(result.numAttributes()-1,data.instance(i).classValue());
-            result.add(in);
+            DenseInstance in=new DenseInstance(transformedData.numAttributes());
+            in.setValue(transformedData.numAttributes()-1,data.instance(i).classValue());
+            transformedData.add(in);
         }
          
-        testHolder =new Instances(result,0);       
-        DenseInstance in=new DenseInstance(result.numAttributes());
+        testHolder =new Instances(transformedData,0);
+        DenseInstance in=new DenseInstance(transformedData.numAttributes());
         testHolder.add(in);
         int classifiersBuilt = trees.size();
 
-        /** For each base classifier
+
+
+        /** MAIN BUILD LOOP
+         *  For each base classifier
          *      generate random intervals
          *      do the transforms
          *      build the classifier
          * */
         while(withinTrainContract(startTime) && (classifiersBuilt < numClassifiers)){
             if(classifiersBuilt%100==0)
-                printLineDebug("\t\t\t\t\tBuilding TSF tree "+classifiersBuilt+" time taken = "+(System.nanoTime()-startTime)+" contract ="+trainContractTimeNanos+" nanos");
+                printLineDebug("\t\t\t\t\tBuilding TSF tree "+classifiersBuilt+" time taken = "+(System.nanoTime()-startTime)+" contract ="+finalBuildtrainContractTimeNanos+" nanos");
 
             //1. Select random intervals for tree i
             int[][] interval =new int[numIntervals][2];  //Start and end
@@ -453,9 +446,9 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
                     double[] series=data.instance(k).toDoubleArray();
                     FeatureSet f= new FeatureSet();
                     f.setFeatures(series, interval[j][0], interval[j][1]);
-                    result.instance(k).setValue(j*3, f.mean);
-                    result.instance(k).setValue(j*3+1, f.stDev);
-                    result.instance(k).setValue(j*3+2, f.slope);
+                    transformedData.instance(k).setValue(j*3, f.mean);
+                    transformedData.instance(k).setValue(j*3+1, f.stDev);
+                    transformedData.instance(k).setValue(j*3+2, f.slope);
                 }
             }
             //3. Create and build tree using all the features.
@@ -464,13 +457,27 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
                 ((Randomizable)tree).setSeed(seed*(classifiersBuilt+1));
 
             if(bagging){
-                boolean[] bag = new boolean[result.numInstances()];
-                Instances bagData = result.resampleWithWeights(rand, bag);
+                long t1=System.nanoTime();
+                boolean[] bag = new boolean[transformedData.numInstances()];
+                Instances bagData = transformedData.resampleWithWeights(rand, bag);
                 tree.buildClassifier(bagData);
                 inBag.add(bag);
+                if(getEstimateOwnPerformance()){
+                    for(int j=0;j<transformedData.numInstances();j++){
+                        if(bag[j])
+                            continue;
+                        double[] newProbs = tree.distributionForInstance(transformedData.instance(j));
+                        oobCounts[j]++;
+                        for(int k=0;k<newProbs.length;k++)
+                            trainDistributions[j][k]+=newProbs[k];
+                    }
+                }
+                long t2=System.nanoTime();
+                if(getEstimateOwnPerformance())
+                    trainResults.setErrorEstimateTime(t2-t1+trainResults.getErrorEstimateTime());
             }
             else
-                tree.buildClassifier(result);
+                tree.buildClassifier(transformedData);
 
             intervals.add(interval);
             trees.add(tree);
@@ -499,48 +506,49 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
         long endTime=System.nanoTime();
         trainResults.setBuildTime(endTime-startTime);
         trainResults.setBuildPlusEstimateTime(trainResults.getBuildTime());
-        /** Estimate accuracy stage: Three scenarios
-         * 1. If we bagged the full build (bagging ==true), we estimate using the full build OOB
-         *  If we built on all data (bagging ==false) we estimate either
-         *  2. with a 10xCV if estimator==EstimatorMethod.CV
-         *  3. Build a bagged model simply to get the estimate estimator==EstimatorMethod.OOB
-         *  Note that all this needs to come out of any contract time we specify.
-         */
+        /** Estimate accuracy from Train data
+         * distributions and predictions stored in trainResults */
         if(getEstimateOwnPerformance()){
             long est1=System.nanoTime();
             estimateOwnPerformance(data);
             long est2=System.nanoTime();
-            trainResults.setErrorEstimateTime(est2-est1);
+            if(bagging)
+                trainResults.setErrorEstimateTime(est2-est1+trainResults.getErrorEstimateTime());
+            else
+                trainResults.setErrorEstimateTime(est2-est1);
+
             trainResults.setBuildPlusEstimateTime(trainResults.getBuildTime()+trainResults.getErrorEstimateTime());
         }
         trainResults.setParas(getParameters());
         printLineDebug("*************** Finished TSF Build with "+classifiersBuilt+" Trees built in "+(System.nanoTime()-startTime)/1000000000+" Seconds  ***************");
     }
 
+    /**
+     * estimating own performance
+     *  Three scenarios
+     *          1. If we bagged the full build (bagging ==true), we estimate using the full build OOB. Assumes the final
+     *          model has already been built
+     *           If we built on all data (bagging ==false) we estimate either
+     *              2. with a 10xCV if estimator==EstimatorMethod.CV
+     *              3. Build a bagged model simply to get the estimate estimator==EstimatorMethod.OOB
+     *    Note that all this needs to come out of any contract time we specify.
+     * @param data
+     * @throws Exception from distributionForInstance
+     */
     private void estimateOwnPerformance(Instances data) throws Exception {
         if(bagging){
             // Use bag data, counts normalised to probabilities
-            trainDistributions= new double[data.numInstances()][data.numClasses()];
-            oobCounts=new int[data.numInstances()];
-            int treeCount=0;
-            for (boolean[] bag : inBag) {
-                Classifier tree=trees.get(treeCount++);
-                for (int j = 0; j < data.numInstances(); j++) {
-                    if (bag[j])
-                        continue;
-                    double[] newProbs = tree.distributionForInstance(data.instance(j));
-                    oobCounts[j]++;
-                    for (int k = 0; k < newProbs.length; k++)
-                        trainDistributions[j][k] += newProbs[k];
-                }
-            }
+            printLineDebug("Finding the OOB estimates");
             double[] preds=new double[data.numInstances()];
             double[] actuals=new double[data.numInstances()];
             long[] predTimes=new long[data.numInstances()];//Dummy variable, need something
             for(int j=0;j<data.numInstances();j++){
+
+
                 long predTime = System.nanoTime();
                 for(int k=0;k<trainDistributions[j].length;k++)
-                    trainDistributions[j][k]/=oobCounts[j];
+                    if(oobCounts[j]>0)
+                        trainDistributions[j][k]/=oobCounts[j];
                 preds[j]=utilities.GenericTools.indexOfMax(trainDistributions[j]);
                 actuals[j]=data.instance(j).classValue();
                 predTimes[j]=System.nanoTime()-predTime;
@@ -565,12 +573,13 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
             cv.setNumFolds(numFolds);
             TSF tsf=new TSF();
             tsf.copyParameters(this);
+            tsf.setDebug(this.debug);
             if (seedClassifier)
                 tsf.setSeed(seed*100);
             tsf.setEstimateOwnPerformance(false);
             if(trainTimeContract)//Need to split the contract time, will give time/(numFolds+2) to each fio
-                tsf.setTrainTimeLimit(trainContractTimeNanos/(numFolds+2));
-            printLineDebug(" Doing CV evaluation using "+trainContractTimeNanos/(numFolds+2)+" nanos per fold");
+                tsf.setTrainTimeLimit(finalBuildtrainContractTimeNanos/numFolds);
+            printLineDebug(" Doing CV evaluation estimate performance with  "+tsf.getTrainContractTimeNanos()/1000000000+" secs per fold.");
             trainResults=cv.evaluate(tsf,data);
             trainResults.setClassifierName("TSFCV");
             trainResults.setErrorEstimateMethod("CV_"+numFolds);
@@ -579,9 +588,12 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
             // Build a single new TSF using Bagging, and extract the estimate from this
             TSF tsf=new TSF();
             tsf.copyParameters(this);
+            tsf.setDebug(this.debug);
             tsf.setSeed(seed);
             tsf.setEstimateOwnPerformance(true);
             tsf.bagging=true;
+            tsf.setTrainTimeLimit(finalBuildtrainContractTimeNanos);
+            printLineDebug(" Doing Bagging estimate performance with "+tsf.getTrainContractTimeNanos()/1000000000+" secs per fold ");
             tsf.buildClassifier(data);
             trainResults=tsf.trainResults;
             trainResults.setClassifierName("TSFOOB");
@@ -593,7 +605,10 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
         this.numClassifiers=other.numClassifiers;
         this.numIntervalsFinder=other.numIntervalsFinder;
     }
-
+    @Override
+    public long getTrainContractTimeNanos(){
+            return trainContractTimeNanos;
+    }
 /**
  * @param ins to classifier
  * @return array of doubles: probability of each class 
@@ -773,7 +788,7 @@ public class TSF extends EnhancedAbstractClassifier implements TechnicalInformat
     @Override//TrainTimeContractable
     public boolean withinTrainContract(long start){
         if(trainContractTimeNanos<=0) return true; //Not contracted
-        return System.nanoTime()-start < trainContractTimeNanos;
+        return System.nanoTime()-start < finalBuildtrainContractTimeNanos;
     }
 
     @Override // Checkpointable
