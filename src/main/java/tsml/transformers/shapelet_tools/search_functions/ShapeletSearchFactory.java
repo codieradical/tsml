@@ -15,6 +15,8 @@
 package tsml.transformers.shapelet_tools.search_functions;
 
 
+import tsml.transformers.shapelet_tools.search_functions.aaron_search.ImprovedRandomSearch;
+
 /**
  * 
  *
@@ -31,10 +33,15 @@ public class ShapeletSearchFactory {
      */
     public ShapeletSearch getShapeletSearch(){
         switch(options.getSearchType()){
+            // ALEX DEBUG
             case FULL:
+            case IMPROVED_RANDOM:
                 return new ShapeletSearch(options);
             case RANDOM:
+            //case IMPROVED_RANDOM:
                 return new RandomSearch(options);
+//            case IMPROVED_RANDOM:
+//                return new ImprovedRandomSearch(options);
             default:
                 throw new UnsupportedOperationException(" Currently only FULL and RANDOM shapelet search are allowed" +
                         "you passed" + options.getSearchType()+" the others are in package aaron_search and are not debugged");

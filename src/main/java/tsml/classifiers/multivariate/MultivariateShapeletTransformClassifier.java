@@ -168,8 +168,10 @@ public class MultivariateShapeletTransformClassifier  extends EnhancedAbstractCl
             buildCheckpointClassifier(data);
         }
         else{
-            long startTime=System.currentTimeMillis(); 
+            long startTime=System.currentTimeMillis();
             format = doTransform ? createTransformData(data, timeLimit) : data;
+            // ALEX DEBUG
+            // System.out.println(format);
             transformBuildTime=System.currentTimeMillis()-startTime;
             if(seedClassifier)
                 ensemble.setSeed((int) seed);
@@ -343,20 +345,20 @@ public class MultivariateShapeletTransformClassifier  extends EnhancedAbstractCl
         ShapeletTransformFactoryOptions options;
         switch(type){
             case INDEP:
-                options = DefaultShapeletOptions.TIMED_FACTORY_OPTIONS.get("INDEPENDENT").apply(train, ShapeletTransformTimingUtilities.dayNano,(long)seed);
+                options = DefaultShapeletOptions.FACTORY_OPTIONS.get("INDEPENDENT").apply(train);
                 break;                
             case MULTI_D:
-                options = DefaultShapeletOptions.TIMED_FACTORY_OPTIONS.get("SHAPELET_D").apply(train, ShapeletTransformTimingUtilities.dayNano,(long)seed);
+                options = DefaultShapeletOptions.FACTORY_OPTIONS.get("SHAPELET_D").apply(train);
                 break;
             case MULTI_I: default:
-                options = DefaultShapeletOptions.TIMED_FACTORY_OPTIONS.get("SHAPELET_I").apply(train, ShapeletTransformTimingUtilities.dayNano,(long)seed);
+                options = DefaultShapeletOptions.FACTORY_OPTIONS.get("SHAPELET_I").apply(train);
                 break;
         }
         
         transform = new ShapeletTransformFactory(options).getFilter();
         if(shapeletOutputPath != null)
             transform.setLogOutputFile(shapeletOutputPath);
-        
+
         return transform.process(train);
     }
     
