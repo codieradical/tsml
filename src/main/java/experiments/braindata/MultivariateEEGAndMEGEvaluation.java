@@ -1,15 +1,24 @@
 package experiments.braindata;
 
 import experiments.Experiments;
+import experiments.braindata.legacy.ARFFDataset;
+import experiments.braindata.legacy.ARFFDatasetRepository;
 
 import java.io.File;
+import java.util.Arrays;
+import java.util.Iterator;
 
-    public class MultivariateEEGAndMEGEvaluation {
+public class MultivariateEEGAndMEGEvaluation {
 
     private static String datasetsPath;
     private static String classifier = null;
     private static String dataset = null;
 
+    // Multivariate EEG and MEG Evaluation:
+
+    // All of my classes are within this package (experiments.braindata).
+    // experiments.braindata.legacy contains some code I created for a separate repo before moivng to a fork of tsml.
+    // It is only included to output class classCounts.
 
     // Experiment 1 is fairly small and could be run on a decent PC, perhaps up to the larger datasets.
     // Experiment 2 is larger and was run on the UEA HPC.
@@ -33,9 +42,27 @@ import java.io.File;
 
         // Uncomment the experiment you'd like to run.
 
-        //experiment1();
+        //classCounts();
+
+        experiment1();
         experiment2();
-        //experiment3();
+        experiment3();
+    }
+
+    public static void classCounts() {
+        try {
+            ARFFDatasetRepository arffDatasetRepository = new ARFFDatasetRepository(datasetsPath);
+            Iterator<ARFFDataset> arffDatasetIterator = arffDatasetRepository.iterator();
+
+            while (arffDatasetIterator.hasNext()) {
+                ARFFDataset dataset = arffDatasetIterator.next();
+                System.out.println(Arrays.toString(dataset.getClassCounts()));
+            }
+
+        } catch (Exception ex) {
+            System.out.println("Distributions Failed to run.\n" + ex.getMessage());
+            ex.printStackTrace();
+        }
     }
 
     public static void experiment1() {
